@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='utf-8'>
+    <meta http-equiv='X-UA-Compatible' content='IE=edge'>
+    <title>Page Title</title>
+    <meta name='viewport' content='width=device-width, initial-scale=1'>
+    
+</head>
+<body>
+    <div id="app">
+        <p>{{name}}</p>
+        <p>{{age}}</p>
+    </div>
+    <script>
+        class VNode {
+            constructor (tag, data, value, type) {
+                this.tag = tag && tag.toLowerCase()
+                this.data = data;
+                this.value = value;
+                this.type = type;
+                this.children = []
+            }
+            
+            appendChild (vnode) {
+                this.children.push(vnode)
+            }
+        }
+
+        // 使用递归来遍历dom，生成虚拟dom
+        // vue中使用的栈结构，使用栈存储父元素来实现递归
+        /**
+         * 由HTMLDOM -> vnode（带坑的），这里我们可以将这个函数看成compler函数
+        */
+        function getVNode (node) {
+            let nodeType = node.nodeType
+            let _vnode = null
+            if (nodeType === 1) {
+                let nodeName = node.nodeName;
+                // 这是一个伪数组
+                let attrs = node.attributes;
+                let _attrObj = {}
+                for (let i = 0; i < attrs.length; i++) {
+                    _attrObj[attrs[i].nodeName] = attrs[i].nodeValue
+                }
+                _vnode = new VNode(nodeName, _attrObj, undefined, nodeType)
+                // 处理子元素
+                let childNodes = node.childNodes
+                for (let i = 0; i < childNodes.length; i++) {
+                    _vnode.appendChild(getVNode(childNodes[i]))
+                }
+
+            } else if (nodeType === 3) {
+                _vnode = new VNode(undefined, undefined, node.nodeValue, nodeType)
+            }
+            return _vnode
+        }
+
+        /**
+         * 根据路径访问对象成员
+         */
+        function createGetValueByPath (path) {
+            let paths = path.split('.') || [];
+            return function getValueByPath(obj) {
+                let res = obj
+                let prop = null
+                while (prop = paths.shift()) {
+                    res = res[prop]
+                }
+                return res;
+            }
+        }
+
+
+        // 将带有坑的vnode和data生成真实vnode，模拟ast -> vnode
+        function combine (vnode, data) {
+            let { tag: _tag, data: _data, value: _value, type: _type, children: _children } = vnode;
+            let _vnode = null
+
+            if (_type === 3) { // 文本节点
+                // 文本节点去替换掉{{}}
+                // 替换花括号
+                let rkuohao = /\{\{(.+?)\}\}/g
+
+                _value = _value.replace(rkuohao, function () {
+                    const param = arguments
+                    let path = param[1]
+                    let getValueByPath = createGetValueByPath(path)
+                    return getValueByPath(data)
+                })
+                _vnode = new VNode(_tag, _data, _value, _type)
+
+            } else if (_type === 1) { // 元素节点
+                _vnode = new VNode(_tag, _data, _value, _type)
+                _children.forEach(_subvnode => {
+                    _vnode.appendChild(combine(_subvnode, data))
+                });
+            }
+            return _vnode
+        }
+
+        function parseVNode (vnode) {
+            let type = vnode.type;
+            let _node = null
+            if (type === 1) {
+                let { tag, data, children } = vnode
+                // 创建元素
+                _node = document.createElement(tag)
+                for (let key in data) {
+                    _node.setAttribute(key, data[key])
+                }
+                
+
+                // 处理子元素
+                for (let i = 0; i < children.length; i++) {
+                    _node.appendChild(parseVNode(children[i]))
+                }
+            } else if (type === 3) {
+                _node = document.createTextNode(vnode.value)
+            }
+            return _node
+        }
+        
+
+        // 使用柯里化来优化render性能
+        function JGVue (options) {
+            // 内部数据使用_，只读数据用$开头
+            this._data = options.data;
+            this._el = options.el;
+
+            // 准备
+            this.$el = this._templateDOM = document.querySelector(this._el);
+
+            // 挂载
+            this.mount()
+        }
+
+        JGVue.prototype.mount = function () {
+            // 提供一个方法，生成虚拟dom
+            this.render = this.createRenderFn()
+
+            this.mountComponent()
+        }
+
+        // 执行
+        JGVue.prototype.mountComponent = function () {
+            let mount = () => {
+                this.update(this.render())
+            }
+            // 本质上应该教给watcher来调用，以后会学
+            mount.call(this)
+        }
+
+        /**
+         * 
+        */
+        // 生成render函数，缓存抽象语法树，用虚拟dom模拟
+        JGVue.prototype.createRenderFn = function () {
+            // 缓存虚拟dom
+            let ast = getVNode(this.$el)
+            // 将抽象语法树和data合成为vnode，抽象语法树简化成带坑的vnode
+            return function render() {
+                let _tmp = combine(ast,  this._data)
+                return _tmp;
+            }
+        }
+
+        // 将虚拟dom渲染到页面中，diff算法就在这里
+        JGVue.prototype.update = function (vnode) {
+            // 简化，直接生成dom
+            let realDom = parseVNode(vnode)
+            document.body.appendChild(realDom)
+        }
+
+        // 使用
+        let app = new JGVue({
+            el: '#app',
+            data: {
+                name: 'hahhaha',
+                age: 23
+            }
+        })
+    </script>
+</body>
+</html>
