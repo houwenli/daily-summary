@@ -1,0 +1,5 @@
+# proxy和reflect
+
+在 JavaScript 中引入 Proxy 的历史原因主要是为了提供更灵活和可扩展的对象操作机制。在es6之前通常需要依赖对象的setter和getter（也就是defineProperty）来实现对象的拦截或者定制操作
+
+在ES6标准中引入Proxy，是为了提供一种通用的标准化机制，是开发者可以再对象定义自定义的操作行为
