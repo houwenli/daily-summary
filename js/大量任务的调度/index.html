@@ -32,9 +32,15 @@
       left: 0;
       top: 0;
     }
+    #time {
+      color: blueviolet;
+      height: 40px;
+      line-height: 40px;
+    }
   </style>
 </head>
 <body>
+  <div id="time"></div>
   <div>点击按钮后，会同时执行1000个耗时任务</div>
   <div><span id="click-btn">开始执行任务</sapn></div>
   <div class="ball-wraper"><div class="ball" id="ball"></div></div>
@@ -47,10 +53,15 @@
       while(Date.now() - now < 5) {}
     }
     const clickBtn = document.getElementById('click-btn');
-    clickBtn.addEventListener('click', () => {
+    clickBtn.addEventListener('click', async() => {
+      let now = Date.now()
       for (let i = 0; i < 1000; i++) {
-        runTask(delay)
+        await runTask(delay)
       }
+      let time = Date.now() - now
+
+      const timeDiv = document.getElementById('time');
+      timeDiv.textContent = `运算耗时${time}`
     })
 
     const ball = document.getElementById('ball');
